@@ -1,3 +1,4 @@
 nc_files/
 rasters/
 .idea/
+__pycache__/

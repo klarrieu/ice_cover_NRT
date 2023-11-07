@@ -12,31 +12,33 @@ import rasterio
 from rasterio.transform import from_origin
 
 
-
 class IceProcessor(object):
-    def __init__(self):
+    def __init__(self, product="VNP29_NRT", days=5,
+                 min_lat=-75.25, min_lon=-115.0, max_lat=-72.0, max_lon=-100.0,
+                 aoi_coverage=90):
         self.login()
 
         # product = 'MYD10_L2'  # MOD10_L2 Aqua and Terra
         # product = 'VNP29P1D'  # daily h5 grid
-        self.product = 'VNP29_NRT'  # near real-time nc file
+        # product = 'VNP29_NRT'  # near real-time nc file
+        self.product = product
 
         # search between 5 days ago til tomorrow
         today = dt.date.today()
-        date_range = (today - dt.timedelta(days=5), today + dt.timedelta(days=1))
+        date_range = (today - dt.timedelta(days=days), today + dt.timedelta(days=1))
         self.date_range = tuple(d.strftime("%Y-%m-%d") for d in date_range)
         print(f"Search date range: {self.date_range}")
 
         # set AOI bbox
-        self.min_lat, self.min_lon = -75.25, -115.0
-        self.max_lat, self.max_lon = -72.0, -100.0
+        self.min_lat, self.min_lon = min_lat, min_lon
+        self.max_lat, self.max_lon = max_lat, max_lon
         self.bbox = (self.min_lon, self.min_lat, self.max_lon, self.max_lat)
         print(f"Search bounding box: {self.bbox}")
         bbox_polygon = Polygon([(self.min_lon, self.min_lat), (self.min_lon, self.max_lat),
                                 (self.max_lon, self.max_lat), (self.max_lon, self.min_lat)])
         self.bbox_polygon_projected = gpd.GeoSeries([bbox_polygon], crs="EPSG:4326").to_crs("EPSG:3031")[0]
         # minimum percent coverage when filtering results
-        self.aoi_coverage = 90
+        self.aoi_coverage = aoi_coverage
 
         # initialize raster properties and metadata
         self.rasters = {}
@@ -101,12 +103,15 @@ class IceProcessor(object):
                 if best_raster is None:
                     best_raster = raster
                     best_metadata = coverage_percents
+        print(f"\nBest raster: {best_raster}")
+        print('AOI stats:')
+        for k, v in best_metadata.items():
+            print(f"\t{k}: {v:.2f}%")
         return best_raster, best_metadata
 
     def make_composite(self):
-        # TODO: make composite ice cover raster
-        print("Making composite raster...")
-        composite_filepath = "composite.tif"
+        print("\nMaking composite raster...")
+        composite_filepath = "./rasters/composite.tif"
         composite = None
         for raster in self.rasters.keys():
             with rasterio.open(raster, 'r') as ds:
@@ -115,7 +120,9 @@ class IceProcessor(object):
                     shutil.copyfile(raster, composite_filepath)
                     composite = arr
                 else:
-                    composite = np.where((composite != 0) & (composite != 1) & ((arr == 0) | (arr == 1)), arr,
+                    composite = np.where((composite != 0) & (composite != 1) &
+                                         ((arr == 0) | (arr == 1) | (arr == 225) | (arr == 237)),
+                                         arr,
                                          composite)
         with rasterio.open(composite_filepath, 'w', driver='GTiff', width=self.width, height=self.height,
                            count=1, dtype=composite.dtype, crs=self.out_crs,
@@ -210,15 +217,3 @@ class IceProcessor(object):
     def read_metadata(self, filepath):
         with open(filepath, 'r') as f:
             return json.load(f)
-
-if __name__ == "__main__":
-
-    ipr = IceProcessor()
-    results = ipr.query_data()
-    results = ipr.filter_results(results)
-    raster, metadata = ipr.process_result_set(results)
-    composite_raster = ipr.make_composite()
-
-    # TODO: send out message
-    # email compressed tif with metadata stats to email list
-    print('Done.')
