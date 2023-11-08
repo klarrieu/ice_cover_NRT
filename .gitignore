@@ -1,4 +1,7 @@
 nc_files/
 rasters/
+config/
 .idea/
 __pycache__/
+*.zip
+*.cache

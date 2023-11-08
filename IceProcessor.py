@@ -89,20 +89,21 @@ class IceProcessor(object):
         return results
 
     def process_result_set(self, results):
-        # TODO: keeping track of what we have already processed and sent
         self.rasters = {}
         best_raster, best_metadata = None, None
-        while results:
-            result = results.pop()
+        least_cc = 100
+        results_copy = results.copy()
+        while results_copy:
+            result = results_copy.pop()
             # parse
             filepath = self.parse_and_download_result(result)
             raster, coverage_percents = self.hdf5_to_raster(filepath)
             self.rasters[raster] = coverage_percents
             # if downloaded file has mostly invalid data, go back to previous result from filtered list until we find a good one
-            if coverage_percents['valid percentage'] > 70 and coverage_percents['clouds'] < 50:
-                if best_raster is None:
-                    best_raster = raster
-                    best_metadata = coverage_percents
+            if coverage_percents['valid percentage'] > 70 and coverage_percents['clouds'] < least_cc:
+                best_raster = raster
+                best_metadata = coverage_percents
+                least_cc = coverage_percents['clouds']
         print(f"\nBest raster: {best_raster}")
         print('AOI stats:')
         for k, v in best_metadata.items():
@@ -120,6 +121,8 @@ class IceProcessor(object):
                     shutil.copyfile(raster, composite_filepath)
                     composite = arr
                 else:
+                    # if we don't already have open water or ice data,
+                    # and arr is open water, ice, land, or inland water, use it
                     composite = np.where((composite != 0) & (composite != 1) &
                                          ((arr == 0) | (arr == 1) | (arr == 225) | (arr == 237)),
                                          arr,
