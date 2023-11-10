@@ -189,16 +189,16 @@ class IceProcessor(object):
             interpolated_values = griddata((lon, lat), ice_cover, (x,y), method='nearest')
             # check percent valid, percent of AOI in each class
             counts = gdf.groupby(['ice_cover']).count()
-            open_count = counts.loc[0][0] if 0 in counts.index else 0
-            ice_count = counts.loc[1][0] if 1 in counts.index else 0
-            cloud_count = counts.loc[250][0] if 250 in counts.index else 0
-            land_count = counts.loc[225][0] if 225 in counts.index else 0
+            open_count = counts.loc[0].iloc[0] if 0 in counts.index else 0
+            ice_count = counts.loc[1].iloc[0] if 1 in counts.index else 0
+            cloud_count = counts.loc[250].iloc[0] if 250 in counts.index else 0
+            land_count = counts.loc[225].iloc[0] if 225 in counts.index else 0
             valid_count = open_count + ice_count + cloud_count + land_count
             coverage_percents = {'open water': open_count / valid_count * 100 if valid_count else 0,
                                  'ice cover': ice_count / valid_count * 100 if valid_count else 0,
                                  'clouds': cloud_count / valid_count * 100 if valid_count else 0,
                                  'land': land_count / valid_count * 100 if valid_count else 0,
-                                 'valid percentage': valid_count / counts.sum()[0] * 100}
+                                 'valid percentage': valid_count / counts.sum().iloc[0] * 100}
             print('AOI stats:')
             for k, v in coverage_percents.items():
                 print(f"\t{k}: {v:.2f}%")
