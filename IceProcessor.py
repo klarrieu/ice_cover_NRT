@@ -1,6 +1,7 @@
 import earthaccess as ea
 import datetime as dt
 import numpy as np
+import hashlib
 import h5py
 import os
 import shutil
@@ -140,13 +141,24 @@ class IceProcessor(object):
             print(f"\t{k}: {v}")
         filename = result.data_links()[0].split('/')[-1]
         filepath = f'./nc_files/{filename}'
+        downloaded = False
         # download the data
         if os.path.exists(filepath):
-            # TODO: also make sure the file can be opened. Use checksum?
-            print('File already downloaded, continuing...')
-        else:
+            # make sure it was downloaded with a good checksum
+            downloaded = self.checksum_match(result, filepath)
+            if downloaded:
+                print('File already downloaded, continuing...')
+            else:
+                print('Checksum mismatch. Re-downloading...')
+                os.remove(filepath)
+        if not downloaded:
             ea.download(result, local_path='./nc_files/')
         return filepath
+
+    def checksum_match(self, result, filepath):
+        result_checksum = result['umm']['DataGranule']['ArchiveAndDistributionInformation'][0]['Checksum']['Value']
+        file_checksum = hashlib.md5(open(filepath, 'rb').read()).hexdigest()
+        return result_checksum == file_checksum
 
     def parse_hd5(self, filepath):
         # read the data
