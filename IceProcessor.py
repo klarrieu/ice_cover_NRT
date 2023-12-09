@@ -122,9 +122,9 @@ class IceProcessor(object):
                     shutil.copyfile(raster, composite_filepath)
                     composite = arr
                 else:
-                    # if we don't already have open water or ice data,
+                    # if we don't already have open water, ice, or land data,
                     # and arr is open water, ice, land, or inland water, use it
-                    composite = np.where((composite != 0) & (composite != 1) &
+                    composite = np.where((composite != 0) & (composite != 1) & (composite != 225) &
                                          ((arr == 0) | (arr == 1) | (arr == 225) | (arr == 237)),
                                          arr,
                                          composite)
